@@ -124,6 +124,32 @@ def compute_bollinger(series, window=20, k=2):
     bandwidth = (upper - lower) / ma
 
     return percent_b, bandwidth
+def compute_ma_gap(series, window=20):
+    """
+    Compute the gap between price and moving average.
+
+    이 함수는 가격 시계열(series)을 입력으로 받아
+    이동평균(Moving Average, MA)을 계산하고,
+    현재 가격이 이평선 대비 얼마나 위/아래에 있는지를
+    비율 형태로 반환합니다.
+
+    Parameters
+    ----------
+    series : pandas.Series
+        종가(close price) 시계열 데이터
+    window : int, default=20
+        이동평균 기간
+
+    Returns
+    -------
+    ma_gap : pandas.Series
+        price - MA 형태의 시계열
+        양수: 이평선 위
+        음수: 이평선 아래
+    """
+    ma = series.rolling(window).mean()
+    ma_gap = series - ma
+    return ma_gap
 
 def preprocess_btc_data(data, future_days=1):
     try:
@@ -137,9 +163,8 @@ def preprocess_btc_data(data, future_days=1):
         data.loc[future_return.isna(), "target_up"] = pd.NA
 
         data["rsi"] = compute_rsi(data['close'])
-        percent_b, bandwidth = compute_bollinger(data['close'])
-        data["bollinger_%b"] = percent_b
-        data["bollinger_bandwidth"] = bandwidth
+        data["bollinger_%b"] = compute_bollinger(data['close'])[0]
+        data["ma20_gap"] = compute_ma_gap(data["close"], window=20)
 
         data = data.drop(["value", "close"], axis=1)
         data.loc[data.index[-future_days:], "target_up"] = pd.NA
@@ -228,7 +253,7 @@ if __name__ == "__main__":
     if st.session_state["loaded"]:
         st.write("## Preprocessed Data")
         st.write(st.session_state["data"])
-        
+
         try:
             st.write("## Run KNN for BTC Prediction")
             run_knn(st.session_state["data"])
